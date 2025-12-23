@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+    provider = "prisma-client"
+    output   = "../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+    ACTIVE
+    PENDING
+    SUSPENDED
+    DELETED
+}
+
+enum UserTokenType {
+    EMAIL_VERIFY
+    PASSWORD_RESET
+    CHANGE_EMAIL
+    MFA_CHALLENGE
+}
+
+model User {
+    id              String     @id @default(cuid())
+    email           String?    @unique
+    emailVerifiedAt DateTime?
+    phone           String?    @unique
+    phoneVerifiedAt DateTime?
+    passwordHash    String?
+    name            String?
+    avatarUrl       String?
+    status          UserStatus @default(ACTIVE)
+    lastLoginAt     DateTime?
+    lastLoginIp     String?
+    createdAt       DateTime   @default(now())
+    updatedAt       DateTime   @updatedAt
+
+    profile   UserProfile?
+    roles     UserRole[]
+    accounts  UserOAuthAccount[]
+    sessions  UserSession[]
+    tokens    UserToken[]
+    twoFactor UserTwoFactor?
+}
+
+model UserProfile {
+    id          String    @id @default(cuid())
+    userId      String    @unique
+    firstName   String?
+    lastName    String?
+    displayName String?
+    gender      String?
+    birthDate   DateTime?
+    locale      String?
+    timezone    String?
+    address     String?
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Role {
+    id          String   @id @default(cuid())
+    name        String   @unique
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    users UserRole[]
+}
+
+model UserRole {
+    userId     String
+    roleId     String
+    assignedAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+    @@id([userId, roleId])
+    @@index([roleId])
+}
+
+model UserOAuthAccount {
+    id                String   @id @default(cuid())
+    userId            String
+    provider          String
+    providerAccountId String
+    accessToken       String?
+    refreshToken      String?
+    expiresAt         Int?
+    tokenType         String?
+    scope             String?
+    idToken           String?
+    sessionState      String?
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([provider, providerAccountId])
+    @@index([userId])
+}
+
+model UserSession {
+    id               String    @id @default(cuid())
+    userId           String
+    refreshTokenHash String?
+    ipAddress        String?
+    userAgent        String?
+    expiresAt        DateTime
+    createdAt        DateTime  @default(now())
+    revokedAt        DateTime?
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([expiresAt])
+}
+
+model UserToken {
+    id        String        @id @default(cuid())
+    userId    String
+    type      UserTokenType
+    tokenHash String
+    expiresAt DateTime
+    usedAt    DateTime?
+    createdAt DateTime      @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([tokenHash])
+    @@index([expiresAt])
+}
+
+model UserTwoFactor {
+    id              String    @id @default(cuid())
+    userId          String    @unique
+    secretEncrypted String
+    enabledAt       DateTime?
+    verifiedAt      DateTime?
+    lastUsedAt      DateTime?
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+
+    user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    recoveryCodes TwoFactorRecoveryCode[]
+}
+
+model TwoFactorRecoveryCode {
+    id          String    @id @default(cuid())
+    twoFactorId String
+    codeHash    String
+    usedAt      DateTime?
+    createdAt   DateTime  @default(now())
+
+    twoFactor UserTwoFactor @relation(fields: [twoFactorId], references: [id], onDelete: Cascade)
+
+    @@unique([twoFactorId, codeHash])
+    @@index([twoFactorId])
+}
