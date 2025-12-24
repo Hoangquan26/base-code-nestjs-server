@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
-      - ./postgresdata:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-base_db}"]
       interval: 10s
@@ -20,7 +20,23 @@ services:
       start_period: 10s
     networks:
       - backend_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: base_code_redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports: 
+      - '${REDIS_PORT:-6479}:6479'
+    networks:
+      - backend_network
+        
       
 networks:
   backend_network:
     driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
