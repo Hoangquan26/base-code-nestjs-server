@@ -8,20 +8,20 @@ import { JwtPayload } from '../types/jwt-payload';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, AUTH_STRATEGY.JWT) {
-  constructor(private readonly configService: ConfigService) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: configService.get<string>('auth.jwt.accessSecret') ?? '',
-    });
-  }
+    constructor(private readonly configService: ConfigService) {
+        super({
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ignoreExpiration: false,
+            secretOrKey: configService.get<string>('auth.jwt.accessSecret') ?? '',
+        });
+    }
 
-  validate(payload: JwtPayload): AuthUser {
-    return {
-      id: payload.sub,
-      email: payload.email ?? null,
-      name: payload.name ?? null,
-      roles: payload.roles ?? [],
-    };
-  }
+    validate(payload: JwtPayload): AuthUser {
+        return {
+            id: payload.sub,
+            email: payload.email ?? null,
+            name: payload.name ?? null,
+            roles: payload.roles ?? [],
+        };
+    }
 }

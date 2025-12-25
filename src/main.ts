@@ -1,8 +1,10 @@
 import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
+import { ResponseTransformInterceptor } from './common/interceptor/response-transform/response-transform.interceptor';
+import { GlobalExceptionFilter } from './common/filter/global/global.filter';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -16,15 +18,27 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
     setupSwagger(app, configService);
 
-    const cors_origin = configService.get<number>('app.cors_origin') ?? true;
-    const cors_creadential = configService.get<number>('app.cors_creadential') ?? true;
+    const corsConfig = configService.get<any>('app.cors')
 
     app.enableCors({
-        origin: cors_origin,
-        credential: cors_creadential
-    })
-    app.setGlobalPrefix('/api/v1')
+        origin: (origin, callback) => {
+            if (!origin) return callback(null, true)
 
+            const allowedOrigins = corsConfig.origin
+            if (allowedOrigins === true || allowedOrigins.includes(origin)) {
+                callback(null, true)
+            } else {
+                callback(new Error('Not allowed by CORS'))
+            }
+        },
+        credentials: corsConfig?.credentials ?? false,
+    })
+    const prefix = configService.get<string>('app.prefix') ?? 'api/v1'
+    app.setGlobalPrefix(prefix)
+
+    const reflector = app.get(Reflector)
+    app.useGlobalInterceptors(new ResponseTransformInterceptor(reflector))
+    app.useGlobalFilters(new GlobalExceptionFilter())
     const port = configService.get<number>('app.port') ?? 3000;
     await app.listen(port);
 }

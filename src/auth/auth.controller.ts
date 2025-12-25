@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -16,6 +16,7 @@ import {
     TwoFactorVerifyDto,
 } from './dto';
 import { type AuthRequest } from './types/auth-request';
+import { type Response } from 'express';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -81,9 +82,19 @@ export class AuthController {
 
     @UseGuards(GoogleAuthGuard)
     @Get('google/callback')
-    googleCallback(@Req() req: AuthRequest) {
-        return this.authService.loginUser(req.user);
+    async googleCallback(@Req() req: AuthRequest, @Res() res: Response) {
+        const session = await this.authService.loginUser(req.user)
+
+        const redirectUrl =
+            `${process.env.APP_URL}/oauth/callback` +
+            `?accessToken=${encodeURIComponent(session.accessToken)}` +
+            `&refreshToken=${encodeURIComponent(session.refreshToken)}` +
+            `&expiresIn=${session.expiresIn}` +
+            `&provider=google`
+
+        return res.redirect(302, redirectUrl)
     }
+
 
     @UseGuards(FacebookAuthGuard)
     @Get('facebook')
@@ -93,7 +104,16 @@ export class AuthController {
 
     @UseGuards(FacebookAuthGuard)
     @Get('facebook/callback')
-    facebookCallback(@Req() req: AuthRequest) {
-        return this.authService.loginUser(req.user);
+    async facebookCallback(@Req() req: AuthRequest, @Res() res: Response) {
+        const session = await this.authService.loginUser(req.user)
+
+        const redirectUrl =
+            `${process.env.APP_URL}/oauth/callback` +
+            `?accessToken=${encodeURIComponent(session.accessToken)}` +
+            `&refreshToken=${encodeURIComponent(session.refreshToken)}` +
+            `&expiresIn=${session.expiresIn}` +
+            `&provider=facebook`
+
+        return res.redirect(302, redirectUrl)
     }
 }

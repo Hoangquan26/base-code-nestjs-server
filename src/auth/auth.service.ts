@@ -9,7 +9,6 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { authenticator } from 'otplib';
 import { compare, hash } from 'bcryptjs';
-import { UserService, UserRecord, UserTokenType } from '../user/user.service';
 import {
     encryptSecret,
     decryptSecret,
@@ -20,6 +19,8 @@ import {
 import { RegisterDto } from './dto';
 import { AuthUser } from './types/auth-user';
 import { JwtPayload } from './types/jwt-payload';
+import { UserService } from 'src/user/user.service';
+import { UserTokenType } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +33,7 @@ export class AuthService {
     async registerLocal(dto: RegisterDto): Promise<AuthUser> {
         const existing = await this.usersService.findByEmail(dto.email);
         if (existing) {
-            throw new ConflictException('Email already registered');
+            throw new ConflictException('Email đã tồn tại');
         }
         const rounds = this.configService.get<number>('auth.bcryptRounds') ?? 12;
         const passwordHash = await hash(dto.password, rounds);
@@ -49,6 +50,7 @@ export class AuthService {
         if (!user?.passwordHash) {
             return null;
         }
+
         const isValid = await this.verifyPassword(password, user.passwordHash);
         if (!isValid) {
             return null;
@@ -68,11 +70,11 @@ export class AuthService {
                 secret: refreshSecret,
             });
         } catch {
-            throw new UnauthorizedException('Invalid refresh token');
+            throw new UnauthorizedException('Không hợp lệ');
         }
         const user = await this.usersService.findById(payload.sub);
         if (!user) {
-            throw new UnauthorizedException('Invalid refresh token');
+            throw new UnauthorizedException('Không hợp lệ');
         }
         return this.issueTokens(this.sanitizeUser(user));
     }
@@ -151,29 +153,29 @@ export class AuthService {
     }
 
     async verifyTwoFactor(userId: string, code: string) {
-        const user = await this.usersService.findById(userId);
-        if (!user?.twoFactorSecretEncrypted) {
-            throw new NotFoundException('Two-factor not configured');
-        }
-        const isValid = this.verifyTwoFactorCode(code, user.twoFactorSecretEncrypted);
-        if (!isValid) {
-            throw new BadRequestException('Invalid OTP');
-        }
-        await this.usersService.enableTwoFactor(userId);
-        return { message: 'Two-factor enabled' };
+        // const user = await this.usersService.findById(userId);
+        // if (!user?.twoFactorSecretEncrypted) {
+        //     throw new NotFoundException('Two-factor not configured');
+        // }
+        // const isValid = this.verifyTwoFactorCode(code, user.twoFactorSecretEncrypted);
+        // if (!isValid) {
+        //     throw new BadRequestException('Invalid OTP');
+        // }
+        // await this.usersService.enableTwoFactor(userId);
+        // return { message: 'Two-factor enabled' };
     }
 
     async disableTwoFactor(userId: string, code: string) {
-        const user = await this.usersService.findById(userId);
-        if (!user?.twoFactorSecretEncrypted) {
-            throw new NotFoundException('Two-factor not configured');
-        }
-        const isValid = this.verifyTwoFactorCode(code, user.twoFactorSecretEncrypted);
-        if (!isValid) {
-            throw new BadRequestException('Invalid OTP');
-        }
-        await this.usersService.disableTwoFactor(userId);
-        return { message: 'Two-factor disabled' };
+        // const user = await this.usersService.findById(userId);
+        // if (!user?.twoFactorSecretEncrypted) {
+        //     throw new NotFoundException('Two-factor not configured');
+        // }
+        // const isValid = this.verifyTwoFactorCode(code, user.twoFactorSecretEncrypted);
+        // if (!isValid) {
+        //     throw new BadRequestException('Invalid OTP');
+        // }
+        // await this.usersService.disableTwoFactor(userId);
+        // return { message: 'Two-factor disabled' };
     }
 
     async validateOAuthLogin(
@@ -273,7 +275,7 @@ export class AuthService {
         };
     }
 
-    private sanitizeUser(user: UserRecord): AuthUser {
+    private sanitizeUser(user): AuthUser {
         return {
             id: user.id,
             email: user.email,

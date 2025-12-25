@@ -1,187 +1,193 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-
-export type UserTokenType = 'EMAIL_VERIFY' | 'PASSWORD_RESET' | 'CHANGE_EMAIL' | 'MFA_CHALLENGE';
-
-export type UserRecord = {
-  id: string;
-  email: string | null;
-  passwordHash?: string | null;
-  name?: string | null;
-  roles?: string[];
-  emailVerifiedAt?: Date | null;
-  twoFactorSecretEncrypted?: string | null;
-  twoFactorEnabled?: boolean;
-};
-
-type UserTokenRecord = {
-  userId: string;
-  type: UserTokenType;
-  tokenHash: string;
-  expiresAt: Date;
-  usedAt?: Date | null;
-};
-
-type OAuthAccountRecord = {
-  provider: string;
-  providerAccountId: string;
-  userId: string;
-  accessToken?: string;
-  refreshToken?: string;
-};
+import { User, UserTokenType } from '@prisma/client';
+import { PrismaService } from 'src/common/prisma/prisma.service';
 
 @Injectable()
 export class UserService {
-  private readonly users = new Map<string, UserRecord>();
-  private readonly usersByEmail = new Map<string, string>();
-  private readonly tokens = new Map<string, UserTokenRecord>();
-  private readonly oauthAccounts = new Map<string, OAuthAccountRecord>();
+    constructor(private readonly prisma: PrismaService) { }
 
-  async findByEmail(email: string): Promise<UserRecord | null> {
-    const key = email.toLowerCase();
-    const userId = this.usersByEmail.get(key);
-    return userId ? this.users.get(userId) ?? null : null;
-  }
+    // =========================
+    // User
+    // =========================
 
-  async findById(userId: string): Promise<UserRecord | null> {
-    return this.users.get(userId) ?? null;
-  }
+    async findByEmail(email: string) {
+        return this.prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+        });
+    }
 
-  async createLocalUser(payload: {
-    email: string;
-    passwordHash: string;
-    name?: string | null;
-  }): Promise<UserRecord> {
-    const id = randomUUID();
-    const email = payload.email.toLowerCase();
-    const user: UserRecord = {
-      id,
-      email,
-      passwordHash: payload.passwordHash,
-      name: payload.name ?? null,
-      roles: [],
-      emailVerifiedAt: null,
-      twoFactorEnabled: false,
-      twoFactorSecretEncrypted: null,
-    };
-    this.users.set(id, user);
-    this.usersByEmail.set(email, id);
-    return user;
-  }
+    async findById(userId: string) {
+        return this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+    }
 
-  async updatePassword(userId: string, passwordHash: string) {
-    const user = this.users.get(userId);
-    if (!user) {
-      return null;
+    async createLocalUser(payload: {
+        email: string;
+        passwordHash: string;
+        name?: string | null;
+    }) {
+        return this.prisma.user.create({
+            data: {
+                email: payload.email.toLowerCase(),
+                passwordHash: payload.passwordHash,
+                name: payload.name ?? null,
+                emailVerifiedAt: null,
+                status: 'ACTIVE',
+            },
+        });
     }
-    user.passwordHash = passwordHash;
-    return user;
-  }
 
-  async verifyEmail(userId: string) {
-    const user = this.users.get(userId);
-    if (!user) {
-      return null;
+    async updatePassword(userId: string, passwordHash: string) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash },
+        });
     }
-    user.emailVerifiedAt = new Date();
-    return user;
-  }
 
-  async createToken(record: UserTokenRecord) {
-    const key = `${record.type}:${record.tokenHash}`;
-    this.tokens.set(key, { ...record, usedAt: null });
-    return record;
-  }
+    async verifyEmail(userId: string) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { emailVerifiedAt: new Date() },
+        });
+    }
 
-  async consumeToken(type: UserTokenType, tokenHash: string, userId?: string) {
-    const key = `${type}:${tokenHash}`;
-    const token = this.tokens.get(key);
-    if (!token) {
-      return null;
-    }
-    if (userId && token.userId !== userId) {
-      return null;
-    }
-    if (token.usedAt) {
-      return null;
-    }
-    if (token.expiresAt.getTime() < Date.now()) {
-      return null;
-    }
-    token.usedAt = new Date();
-    return token;
-  }
+    // =========================
+    // UserToken
+    // =========================
 
-  async saveTwoFactorSecret(userId: string, secretEncrypted: string) {
-    const user = this.users.get(userId);
-    if (!user) {
-      return null;
+    async createToken(payload: {
+        userId: string;
+        type: UserTokenType;
+        tokenHash: string;
+        expiresAt: Date;
+    }) {
+        return this.prisma.userToken.create({
+            data: {
+                userId: payload.userId,
+                type: payload.type,
+                tokenHash: payload.tokenHash,
+                expiresAt: payload.expiresAt,
+            },
+        });
     }
-    user.twoFactorSecretEncrypted = secretEncrypted;
-    user.twoFactorEnabled = false;
-    return user;
-  }
 
-  async enableTwoFactor(userId: string) {
-    const user = this.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    user.twoFactorEnabled = true;
-    return user;
-  }
+    async consumeToken(
+        type: UserTokenType,
+        tokenHash: string,
+        userId?: string,
+    ) {
+        const token = await this.prisma.userToken.findFirst({
+            where: {
+                type,
+                tokenHash,
+                usedAt: null,
+                expiresAt: { gt: new Date() },
+                ...(userId ? { userId } : {}),
+            },
+        });
 
-  async disableTwoFactor(userId: string) {
-    const user = this.users.get(userId);
-    if (!user) {
-      return null;
-    }
-    user.twoFactorEnabled = false;
-    user.twoFactorSecretEncrypted = null;
-    return user;
-  }
+        if (!token) {
+            return null;
+        }
 
-  async upsertOAuthUser(payload: {
-    provider: string;
-    providerAccountId: string;
-    email: string | null;
-    name: string | null;
-    accessToken?: string;
-    refreshToken?: string;
-  }): Promise<UserRecord> {
-    const key = `${payload.provider}:${payload.providerAccountId}`;
-    const existingAccount = this.oauthAccounts.get(key);
-    if (existingAccount) {
-      return this.users.get(existingAccount.userId) as UserRecord;
+        return this.prisma.userToken.update({
+            where: { id: token.id },
+            data: { usedAt: new Date() },
+        });
     }
-    let user: UserRecord | null = null;
-    if (payload.email) {
-      user = await this.findByEmail(payload.email);
+
+    // =========================
+    // Two Factor
+    // =========================
+
+    async saveTwoFactorSecret(userId: string, secretEncrypted: string) {
+        return this.prisma.userTwoFactor.upsert({
+            where: { userId },
+            update: {
+                secretEncrypted,
+                enabledAt: null,
+                verifiedAt: null,
+            },
+            create: {
+                userId,
+                secretEncrypted,
+            },
+        });
     }
-    if (!user) {
-      const id = randomUUID();
-      user = {
-        id,
-        email: payload.email,
-        passwordHash: null,
-        name: payload.name,
-        roles: [],
-        emailVerifiedAt: payload.email ? new Date() : null,
-        twoFactorEnabled: false,
-        twoFactorSecretEncrypted: null,
-      };
-      this.users.set(id, user);
-      if (payload.email) {
-        this.usersByEmail.set(payload.email.toLowerCase(), id);
-      }
+
+    async enableTwoFactor(userId: string) {
+        return this.prisma.userTwoFactor.update({
+            where: { userId },
+            data: {
+                enabledAt: new Date(),
+            },
+        });
     }
-    this.oauthAccounts.set(key, {
-      provider: payload.provider,
-      providerAccountId: payload.providerAccountId,
-      userId: user.id,
-      accessToken: payload.accessToken,
-      refreshToken: payload.refreshToken,
-    });
-    return user;
-  }
+
+    async disableTwoFactor(userId: string) {
+        await this.prisma.userTwoFactor.delete({
+            where: { userId },
+        });
+        return true;
+    }
+
+    // =========================
+    // OAuth
+    // =========================
+
+    async upsertOAuthUser(payload: {
+        provider: string;
+        providerAccountId: string;
+        email: string | null;
+        name: string | null;
+        accessToken?: string;
+        refreshToken?: string;
+    }) {
+        const existingAccount =
+            await this.prisma.userOAuthAccount.findUnique({
+                where: {
+                    provider_providerAccountId: {
+                        provider: payload.provider,
+                        providerAccountId: payload.providerAccountId,
+                    },
+                },
+                include: { user: true },
+            });
+
+        if (existingAccount) {
+            return existingAccount.user;
+        }
+
+        let user : null | User = null;
+
+        if (payload.email) {
+            user = await this.prisma.user.findUnique({
+                where: { email: payload.email.toLowerCase() },
+            });
+        }
+
+        if (!user) {
+            user = await this.prisma.user.create({
+                data: {
+                    email: payload.email?.toLowerCase() ?? null,
+                    name: payload.name,
+                    emailVerifiedAt: payload.email ? new Date() : null,
+                },
+            });
+        }
+        if (user) {
+            await this.prisma.userOAuthAccount.create({
+                data: {
+                    userId: user.id,
+                    provider: payload.provider,
+                    providerAccountId: payload.providerAccountId,
+                    accessToken: payload.accessToken,
+                    refreshToken: payload.refreshToken,
+                },
+            });
+        }
+
+        return user;
+    }
 }

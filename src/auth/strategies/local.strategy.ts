@@ -6,15 +6,15 @@ import { AuthService } from '../auth.service';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy, AUTH_STRATEGY.LOCAL) {
-  constructor(private readonly authService: AuthService) {
-    super({ usernameField: 'email' });
-  }
-
-  async validate(email: string, password: string) {
-    const user = await this.authService.validateLocalUser(email, password);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+    constructor(private readonly authService: AuthService) {
+        super({ usernameField: 'email' });
     }
-    return user;
-  }
+
+    async validate(email: string, password: string) {
+        const user = await this.authService.validateLocalUser(email, password);
+        if (!user) {
+            throw new UnauthorizedException('Thông tin đăng nhập không hợp lệ');
+        }
+        return user;
+    }
 }
