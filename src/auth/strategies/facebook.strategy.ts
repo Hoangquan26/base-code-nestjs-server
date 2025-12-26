@@ -15,7 +15,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy, AUTH_STRATEGY.F
       clientID: configService.get<string>('oauth.facebook.clientId') || 'disabled',
       clientSecret: configService.get<string>('oauth.facebook.clientSecret') || 'disabled',
       callbackURL: configService.get<string>('oauth.facebook.callbackUrl') || '',
-      profileFields: ['id', 'displayName', 'emails'],
+      profileFields: ['id', 'displayName', 'emails', 'photos'],
       scope: ['email'],
     });
   }

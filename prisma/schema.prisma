@@ -20,6 +20,12 @@ enum UserStatus {
     DELETED
 }
 
+enum AvatarSource {
+    UPLOAD
+    S3
+    SOCIAL
+}
+
 enum UserTokenType {
     EMAIL_VERIFY
     PASSWORD_RESET
@@ -36,6 +42,8 @@ model User {
     passwordHash    String?
     name            String?
     avatarUrl       String?
+    avatarSource    AvatarSource?
+    avatarUpdatedAt DateTime?
     status          UserStatus @default(ACTIVE)
     lastLoginAt     DateTime?
     lastLoginIp     String?

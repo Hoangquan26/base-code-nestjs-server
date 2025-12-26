@@ -8,12 +8,15 @@ import { GlobalExceptionFilter } from './common/filter/global/global.filter';
 import { AppLogger } from './common/logger/logger.service';
 import { LogProducerService } from './common/logger/log-producer.service';
 import helmet from 'helmet';
+import * as express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
     const appLogger = await app.resolve(AppLogger);
     app.useLogger(appLogger);
     app.flushLogs();
+    app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
@@ -24,7 +27,14 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
     setupSwagger(app, configService);
 
-    const corsConfig = configService.get<any>('app.cors')
+    const corsConfig = configService.get<any>('app.cors') ?? {}
+    const corsMethods =
+        corsConfig?.methods ?? ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']
+    const corsAllowedHeaders =
+        corsConfig?.allowedHeaders ??
+        ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Trace-Id']
+    const corsExposedHeaders =
+        corsConfig?.exposedHeaders ?? ['X-Request-Id', 'X-Trace-Id']
 
     app.use(
         helmet({
@@ -37,7 +47,7 @@ async function bootstrap() {
         origin: (origin, callback) => {
             if (!origin) return callback(null, true)
 
-            const allowedOrigins = corsConfig.origin
+            const allowedOrigins = corsConfig?.origin ?? true
             if (allowedOrigins === true || allowedOrigins.includes(origin)) {
                 callback(null, true)
             } else {
@@ -45,13 +55,9 @@ async function bootstrap() {
             }
         },
         credentials: corsConfig?.credentials ?? false,
-        methods: corsConfig?.methods,
-        allowedHeaders:
-            corsConfig?.allowedHeaders ??
-            ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Trace-Id'],
-        exposedHeaders:
-            corsConfig?.exposedHeaders ??
-            ['X-Request-Id', 'X-Trace-Id'],
+        methods: corsMethods,
+        allowedHeaders: corsAllowedHeaders,
+        exposedHeaders: corsExposedHeaders,
         maxAge: corsConfig?.maxAge,
     })
     const prefix = configService.get<string>('app.prefix') ?? 'api/v1'

@@ -66,12 +66,22 @@ export class AuthService {
     }
 
     async loginUser(user: AuthUser) {
+        let resolvedUser = user;
+        const needsHydration =
+            typeof user.avatarUrl === 'undefined' ||
+            typeof user.avatarSource === 'undefined';
+        if (needsHydration) {
+            const dbUser = await this.usersService.findById(user.id);
+            if (dbUser) {
+                resolvedUser = this.sanitizeUser(dbUser);
+            }
+        }
         void this.logProducer.audit(
             'User login',
             { actorId: user.id, email: user.email },
             AuthService.name,
         );
-        return this.issueTokens(user);
+        return this.issueTokens(resolvedUser);
     }
 
     async refreshTokens(refreshToken: string) {
@@ -217,11 +227,17 @@ export class AuthService {
 
     async validateOAuthLogin(
         provider: 'google' | 'facebook',
-        profile: { id: string; emails?: { value: string }[]; displayName?: string },
+        profile: {
+            id: string;
+            emails?: { value: string }[];
+            displayName?: string;
+            photos?: { value: string }[];
+        },
         accessToken?: string,
         refreshToken?: string,
     ): Promise<AuthUser> {
         const email = profile.emails?.[0]?.value ?? null;
+        const avatarUrl = profile.photos?.[0]?.value ?? null;
         const user = await this.usersService.upsertOAuthUser({
             provider,
             providerAccountId: profile.id,
@@ -229,6 +245,7 @@ export class AuthService {
             name: profile.displayName ?? null,
             accessToken,
             refreshToken,
+            avatarUrl,
         });
         return this.sanitizeUser(user);
     }
@@ -280,6 +297,8 @@ export class AuthService {
             sub: user.id,
             email: user.email ?? null,
             name: user.name ?? null,
+            avatarUrl: user.avatarUrl ?? null,
+            avatarSource: user.avatarSource ?? null,
             roles: user.roles ?? [],
         };
         const accessSecret = this.configService.get<string>('auth.jwt.accessSecret') ?? '';
@@ -317,6 +336,8 @@ export class AuthService {
             id: user.id,
             email: user.email,
             name: user.name ?? null,
+            avatarUrl: user.avatarUrl ?? null,
+            avatarSource: user.avatarSource ?? null,
             roles: user.roles,
         };
     }

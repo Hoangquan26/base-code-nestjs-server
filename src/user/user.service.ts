@@ -133,6 +133,25 @@ export class UserService {
     }
 
     // =========================
+    // Avatar
+    // =========================
+
+    async updateAvatar(payload: {
+        userId: string;
+        avatarUrl: string | null;
+        source: 'UPLOAD' | 'S3' | 'SOCIAL';
+    }) {
+        return this.prisma.user.update({
+            where: { id: payload.userId },
+            data: {
+                avatarUrl: payload.avatarUrl,
+                avatarSource: payload.avatarUrl ? payload.source : null,
+                avatarUpdatedAt: payload.avatarUrl ? new Date() : null,
+            },
+        });
+    }
+
+    // =========================
     // OAuth
     // =========================
 
@@ -143,6 +162,7 @@ export class UserService {
         name: string | null;
         accessToken?: string;
         refreshToken?: string;
+        avatarUrl?: string | null;
     }) {
         const existingAccount =
             await this.prisma.userOAuthAccount.findUnique({
@@ -156,6 +176,20 @@ export class UserService {
             });
 
         if (existingAccount) {
+            if (
+                payload.avatarUrl &&
+                (!existingAccount.user.avatarUrl ||
+                    existingAccount.user.avatarSource === 'SOCIAL')
+            ) {
+                return this.prisma.user.update({
+                    where: { id: existingAccount.user.id },
+                    data: {
+                        avatarUrl: payload.avatarUrl,
+                        avatarSource: 'SOCIAL',
+                        avatarUpdatedAt: new Date(),
+                    },
+                });
+            }
             return existingAccount.user;
         }
 
@@ -173,6 +207,24 @@ export class UserService {
                     email: payload.email?.toLowerCase() ?? null,
                     name: payload.name,
                     emailVerifiedAt: payload.email ? new Date() : null,
+                    avatarUrl: payload.avatarUrl ?? null,
+                    avatarSource: payload.avatarUrl ? 'SOCIAL' : null,
+                    avatarUpdatedAt: payload.avatarUrl ? new Date() : null,
+                },
+            });
+        }
+
+        if (
+            user &&
+            payload.avatarUrl &&
+            (!user.avatarUrl || user.avatarSource === 'SOCIAL')
+        ) {
+            user = await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    avatarUrl: payload.avatarUrl,
+                    avatarSource: 'SOCIAL',
+                    avatarUpdatedAt: new Date(),
                 },
             });
         }
