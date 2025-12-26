@@ -1,5 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -33,9 +34,102 @@ class EnvironmentVariables {
   @IsNotEmpty()
   APP_URL: string;
 
+  @IsOptional()
+  @IsString()
+  LOG_LEVEL?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_JSON?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_CONSOLE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_CONSOLE_COLORIZE?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_FILE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsString()
+  LOG_FILE_DIR?: string;
+
+  @IsOptional()
+  @IsString()
+  LOG_FILE_NAME?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  LOG_FILE_MAXSIZE?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  LOG_FILE_MAXFILES?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_APP_FILE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsString()
+  LOG_APP_FILE_NAME?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_ERROR_FILE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsString()
+  LOG_ERROR_FILE_NAME?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_ACCESS_FILE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsString()
+  LOG_ACCESS_FILE_NAME?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_AUDIT_FILE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsString()
+  LOG_AUDIT_FILE_NAME?: string;
+
   @IsString()
   @IsNotEmpty()
   DATABASE_URL: string;
+
+  @IsOptional()
+  @IsString()
+  REDIS_HOST?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  REDIS_PORT?: number;
+
+  @IsOptional()
+  @IsString()
+  REDIS_PASSWORD?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  REDIS_DB?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_QUEUE_ENABLED?: boolean;
 
   @IsString()
   @IsNotEmpty()

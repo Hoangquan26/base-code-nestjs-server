@@ -5,9 +5,14 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
 import { ResponseTransformInterceptor } from './common/interceptor/response-transform/response-transform.interceptor';
 import { GlobalExceptionFilter } from './common/filter/global/global.filter';
+import { AppLogger } from './common/logger/logger.service';
+import { LogProducerService } from './common/logger/log-producer.service';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule, { bufferLogs: true });
+    const appLogger = await app.resolve(AppLogger);
+    app.useLogger(appLogger);
+    app.flushLogs();
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
@@ -38,7 +43,8 @@ async function bootstrap() {
 
     const reflector = app.get(Reflector)
     app.useGlobalInterceptors(new ResponseTransformInterceptor(reflector))
-    app.useGlobalFilters(new GlobalExceptionFilter())
+    const logProducer = app.get(LogProducerService)
+    app.useGlobalFilters(new GlobalExceptionFilter(logProducer))
     const port = configService.get<number>('app.port') ?? 3000;
     await app.listen(port);
 }

@@ -4,15 +4,17 @@ import {
     ExceptionFilter,
     HttpException,
     HttpStatus,
-    Logger,
 } from '@nestjs/common'
 import { Request, Response } from 'express'
 import { AppException } from 'src/common/error/app.exception'
 import { ErrorCode } from 'src/common/error/error-code.enum'
 import { ErrorResponse } from 'src/common/response/error.type'
+import { LogProducerService } from 'src/common/logger/log-producer.service'
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+    constructor(private readonly logProducer?: LogProducerService) { }
+
     catch(exception: unknown, host: ArgumentsHost) {
         const ctx = host.switchToHttp()
         const res = ctx.getResponse<Response>()
@@ -24,7 +26,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         let status = HttpStatus.INTERNAL_SERVER_ERROR
         let code = ErrorCode.INTERNAL_ERROR
         let message = 'Internal server error'
-        console.error('[ERROR]: ', exception, message)
+
         if (exception instanceof AppException) {
             status = exception.getStatus()
             code = exception.code
@@ -43,6 +45,25 @@ export class GlobalExceptionFilter implements ExceptionFilter {
                         : status === 404
                             ? ErrorCode.NOT_FOUND
                             : ErrorCode.VALIDATION_ERROR
+        }
+
+        if (this.logProducer) {
+            const trace =
+                exception instanceof Error ? exception.stack : undefined
+            void this.logProducer.error(
+                message,
+                {
+                    status,
+                    code,
+                    requestId,
+                    method: req.method,
+                    path: req.originalUrl ?? req.url,
+                },
+                trace,
+                GlobalExceptionFilter.name,
+            )
+        } else {
+            console.error('[ERROR]: ', exception, message)
         }
 
         const response: ErrorResponse = {

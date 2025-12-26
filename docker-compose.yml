@@ -31,7 +31,22 @@ services:
       - '${REDIS_PORT:-6479}:6479'
     networks:
       - backend_network
-        
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: base_code_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - backend_network
       
 networks:
   backend_network:
@@ -40,3 +55,4 @@ networks:
 volumes:
   postgres-data:
   redis-data:
+  rabbitmq-data:
