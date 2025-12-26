@@ -45,6 +45,8 @@ export class ResponseTransformInterceptor
 
         const httpCtx = context.switchToHttp()
         const req = httpCtx.getRequest<Request>()
+        const requestId = (req as any).requestId
+        const traceId = (req as any).traceId ?? requestId
 
         return next.handle().pipe(
             map((data): SuccessResponse<any> => {
@@ -53,7 +55,8 @@ export class ResponseTransformInterceptor
                         success: true,
                         data: data.payload,
                         meta: {
-                            requestId: (req as any).requestId,
+                            requestId,
+                            traceId,
                             timestamp: new Date().toISOString(),
                             ...(data.meta ?? {}),
                         },
@@ -64,7 +67,8 @@ export class ResponseTransformInterceptor
                     success: true,
                     data,
                     meta: {
-                        requestId: (req as any).requestId,
+                        requestId,
+                        traceId,
                         timestamp: new Date().toISOString(),
                     },
                 }

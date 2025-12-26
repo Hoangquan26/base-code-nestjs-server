@@ -36,6 +36,31 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  APP_CORS_ORIGIN?: string;
+
+  @IsOptional()
+  @IsString()
+  APP_CORS_ALLOWED_HEADERS?: string;
+
+  @IsOptional()
+  @IsString()
+  APP_CORS_EXPOSED_HEADERS?: string;
+
+  @IsOptional()
+  @IsString()
+  APP_CORS_METHODS?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  APP_CORS_MAX_AGE?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  APP_CORS_CREDENTIALS?: boolean;
+
+  @IsOptional()
+  @IsString()
   LOG_LEVEL?: string;
 
   @IsOptional()
@@ -130,6 +155,20 @@ class EnvironmentVariables {
   @IsOptional()
   @IsBoolean()
   LOG_QUEUE_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  METRICS_ENABLED?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  THROTTLE_TTL_SEC?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  THROTTLE_LIMIT?: number;
 
   @IsString()
   @IsNotEmpty()

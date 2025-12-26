@@ -28,7 +28,7 @@ services:
     volumes:
       - redis-data:/data
     ports: 
-      - '${REDIS_PORT:-6479}:6479'
+      - '${REDIS_PORT:-6379}:6379'
     networks:
       - backend_network
 

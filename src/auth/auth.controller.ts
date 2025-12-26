@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
 import { AuthService } from './auth.service';
@@ -22,6 +23,12 @@ import { type Response } from 'express';
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
+
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    profile(@Req() req: AuthRequest) {
+        return this.authService.loginUser(req.user)
+    }
 
     @Post('register')
     register(@Body() dto: RegisterDto) {
@@ -94,7 +101,6 @@ export class AuthController {
 
         return res.redirect(302, redirectUrl)
     }
-
 
     @UseGuards(FacebookAuthGuard)
     @Get('facebook')

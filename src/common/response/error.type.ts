@@ -4,6 +4,7 @@ export type ErrorResponse = {
     message: string
     meta: {
         requestId?: string
+        traceId?: string
         timestamp: string
     }
 }

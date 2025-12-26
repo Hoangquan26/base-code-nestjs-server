@@ -9,5 +9,11 @@ export const appConfig = registerAs('app', () => ({
     cors: {
         origin: process.env.APP_CORS_ORIGIN?.split(',').map(origin => origin.trim()) ?? true,
         credentials: process.env.APP_CORS_CREDENTIALS === 'true',
+        methods: process.env.APP_CORS_METHODS?.split(',').map(method => method.trim()),
+        allowedHeaders: process.env.APP_CORS_ALLOWED_HEADERS?.split(',').map(header => header.trim()),
+        exposedHeaders: process.env.APP_CORS_EXPOSED_HEADERS?.split(',').map(header => header.trim()),
+        maxAge: process.env.APP_CORS_MAX_AGE
+            ? Number.parseInt(process.env.APP_CORS_MAX_AGE, 10)
+            : undefined,
     },
 }));

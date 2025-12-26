@@ -7,6 +7,7 @@ import { ResponseTransformInterceptor } from './common/interceptor/response-tran
 import { GlobalExceptionFilter } from './common/filter/global/global.filter';
 import { AppLogger } from './common/logger/logger.service';
 import { LogProducerService } from './common/logger/log-producer.service';
+import helmet from 'helmet';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -25,6 +26,13 @@ async function bootstrap() {
 
     const corsConfig = configService.get<any>('app.cors')
 
+    app.use(
+        helmet({
+            contentSecurityPolicy: false,
+            crossOriginEmbedderPolicy: false,
+        }),
+    );
+
     app.enableCors({
         origin: (origin, callback) => {
             if (!origin) return callback(null, true)
@@ -37,6 +45,14 @@ async function bootstrap() {
             }
         },
         credentials: corsConfig?.credentials ?? false,
+        methods: corsConfig?.methods,
+        allowedHeaders:
+            corsConfig?.allowedHeaders ??
+            ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Trace-Id'],
+        exposedHeaders:
+            corsConfig?.exposedHeaders ??
+            ['X-Request-Id', 'X-Trace-Id'],
+        maxAge: corsConfig?.maxAge,
     })
     const prefix = configService.get<string>('app.prefix') ?? 'api/v1'
     app.setGlobalPrefix(prefix)
@@ -44,7 +60,7 @@ async function bootstrap() {
     const reflector = app.get(Reflector)
     app.useGlobalInterceptors(new ResponseTransformInterceptor(reflector))
     const logProducer = app.get(LogProducerService)
-    app.useGlobalFilters(new GlobalExceptionFilter(logProducer))
+    app.useGlobalFilters(new GlobalExceptionFilter(logProducer, configService))
     const port = configService.get<number>('app.port') ?? 3000;
     await app.listen(port);
 }

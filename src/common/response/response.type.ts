@@ -1,5 +1,6 @@
 export type ResponseMeta = {
     requestId?: string
+    traceId?: string
     timestamp: string
 }
 

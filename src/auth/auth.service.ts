@@ -21,6 +21,7 @@ import { AuthUser } from './types/auth-user';
 import { JwtPayload } from './types/jwt-payload';
 import { UserService } from 'src/user/user.service';
 import { UserTokenType } from '@prisma/client';
+import { LogProducerService } from 'src/common/logger/log-producer.service';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +29,7 @@ export class AuthService {
         private readonly usersService: UserService,
         private readonly configService: ConfigService,
         private readonly jwtService: JwtService,
+        private readonly logProducer: LogProducerService,
     ) { }
 
     async registerLocal(dto: RegisterDto): Promise<AuthUser> {
@@ -42,6 +44,11 @@ export class AuthService {
             passwordHash,
             name: dto.name ?? null,
         });
+        void this.logProducer.audit(
+            'User registered',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         return this.sanitizeUser(user);
     }
 
@@ -59,6 +66,11 @@ export class AuthService {
     }
 
     async loginUser(user: AuthUser) {
+        void this.logProducer.audit(
+            'User login',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         return this.issueTokens(user);
     }
 
@@ -76,6 +88,11 @@ export class AuthService {
         if (!user) {
             throw new UnauthorizedException('Không hợp lệ');
         }
+        void this.logProducer.audit(
+            'Refresh token issued',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         return this.issueTokens(this.sanitizeUser(user));
     }
 
@@ -88,6 +105,11 @@ export class AuthService {
             this.configService.get<number>('auth.tokens.passwordResetTtlMin') ?? 15;
         const token = randomToken(32);
         await this.createUserToken(user.id, 'PASSWORD_RESET', token, ttlMinutes);
+        void this.logProducer.audit(
+            'Password reset requested',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         if (this.isProduction()) {
             return { message: 'If the account exists, a reset token has been created.' };
         }
@@ -102,6 +124,11 @@ export class AuthService {
         const rounds = this.configService.get<number>('auth.bcryptRounds') ?? 12;
         const passwordHash = await hash(newPassword, rounds);
         await this.usersService.updatePassword(tokenRecord.userId, passwordHash);
+        void this.logProducer.audit(
+            'Password reset',
+            { actorId: tokenRecord.userId },
+            AuthService.name,
+        );
         return { message: 'Password updated' };
     }
 
@@ -130,6 +157,11 @@ export class AuthService {
             throw new BadRequestException('Invalid or expired OTP');
         }
         await this.usersService.verifyEmail(user.id);
+        void this.logProducer.audit(
+            'Email verified',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         return { message: 'Email verified' };
     }
 
@@ -149,6 +181,11 @@ export class AuthService {
             this.configService.get<string>('twoFactor.encryptionKey') ?? '';
         const secretEncrypted = encryptSecret(secret, encryptionKey);
         await this.usersService.saveTwoFactorSecret(user.id, secretEncrypted);
+        void this.logProducer.audit(
+            'Two-factor setup initiated',
+            { actorId: user.id, email: user.email },
+            AuthService.name,
+        );
         return { otpauthUrl, secret };
     }
 
